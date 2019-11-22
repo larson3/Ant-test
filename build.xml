@@ -1,0 +1,140 @@
+<project name="HelloWorld" basedir="." default="main">
+
+	<property name="src.dir"     value="src"/>
+	<property name="build.dir"   value="build"/>
+	<property name="classes.dir" value="${build.dir}/classes"/>
+	<property name="jar.dir"     value="${build.dir}/jar"/>
+	<property name="lib.dir"     value="lib"/>
+	<property name="report.dir"  value="${build.dir}/report"/>
+	
+	<property name="main-class"  value="com.federal.HelloWorld"/>
+	
+	<target name="msg">
+		<property environment="my_env" />
+		<echo message="BUILD_NUMBER: ${my_env.BUILD_NUMBER}"/>
+		<echo message="BUILD_NAME: ${my_env.BUILD_NAME}"/>
+		<echo message="SRC: ${src.dir}"/>
+		<echo message="EXP: ${export_dir}"/>
+	</target>
+	
+	<target name="reset">
+		<echo message="Clearing src directory"/>
+		<exec executable="sh">
+			<arg value="-c"/>
+			<arg value="rm -fR src/com/*"/>
+		</exec>
+	</target>
+	
+	<target name="gather">
+		<echo message="Merging federal, math into src directory"/>
+		<exec executable="sh">
+			<arg value="-c"/>
+			<arg value="cp -R external/federal/* src"/>
+		</exec>
+		<exec executable="sh">
+			<arg value="-c"/>
+			<arg value="cp -R external/math/* src"/>
+		</exec>
+	</target>
+	
+	<target name="clean">
+		<delete dir="${build.dir}"/>
+	</target>
+
+	<path id="binjarspath">
+		<fileset dir="${lib.dir}" includes="**/*.jar"/>
+	</path>
+	<path id="dstjarspath">
+		<fileset dir="${jar.dir}" includes="**/*.jar"/>
+	</path>
+	
+	<target name="build">
+		<mkdir dir="${classes.dir}"/>
+		<javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="binjarspath"/>
+		<copy todir="${classes.dir}">
+			<fileset dir="${src.dir}" excludes="**/*.java"/>
+		</copy>
+	</target>
+
+	<target name="jar" depends="build">
+		<mkdir dir="${jar.dir}"/>
+		<jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
+			<manifest>
+				<attribute name="Main-Class" value="${main-class}"/>
+			</manifest>
+		</jar>
+	</target>
+
+	<target name="run" depends="jar">
+		<java fork="true" classname="${main-class}">
+			<classpath>
+				<path refid="binjarspath"/>
+				<path refid="dstjarspath"/>
+			</classpath>
+		</java>
+	</target>
+
+	<target name="junit" depends="jar">
+		<mkdir dir="${report.dir}"/>
+		<junit printsummary="yes" showoutput="true">
+			<classpath>
+				<path refid="binjarspath"/>
+				<path refid="dstjarspath"/>
+			</classpath>
+			
+			<formatter type="xml"/>
+
+			<batchtest fork="yes" todir="${report.dir}">
+				<fileset dir="${src.dir}" includes="**/*Test.java"/>
+			</batchtest>
+		</junit>
+	</target>
+	
+	<target name="report">
+		<junitreport todir="${report.dir}">
+            <fileset dir="${report.dir}" includes="TEST-*.xml"/>
+            <report todir="${report.dir}">
+				<param name="key1" expression="system-err"/>
+			</report>
+			
+        </junitreport>
+		<exec executable="open">
+			<arg value="build/junitreport/index.html"/>
+		</exec>
+    </target>
+	
+	<target name="clean-build" depends="clean,jar"/>
+
+	<target name="main" depends="reset,gather,clean,run"/>
+	
+	<target name="full" depends="msg,reset,gather,clean,run,junit,report,export_report_true,export_report_false">
+		<!--
+		<exec executable="open">
+			<arg value="build/report/index.html"/>
+		</exec>
+		-->
+	</target>
+	
+	<target name="check-export">
+	    <available file="${export_dir}" property="export.present"/>
+	</target>
+	
+	<target name="export_report_true" depends="check-export" if="export.present">
+		<echo message="EXPORT: ${report.dir}"/>
+		<echo message="EXPORT: ${export_dir}${my_env.BUILD_NUMBER}/"/>
+		<mkdir dir="${export_dir}${my_env.BUILD_NUMBER}"/>
+		<exec executable="tar">
+			<arg value="-zcvf"/>
+			<arg value="${export_dir}${my_env.BUILD_NUMBER}/reports.tar.gz"/>
+			<arg value="${report.dir}"/>
+		</exec>
+		<tar destfile="${export_dir}${my_env.BUILD_NUMBER}/reports.tar.gz" basedir="${report.dir}" compression="gzip"/>
+		<!--
+		<gzip destfile="${export_dir}${my_env.BUILD_NUMBER}/reports.tar.gz" src="${export_dir}${my_env.BUILD_NUMBER}/reports.tar"/>
+			-->
+	</target>
+	
+	<target name="export_report_false" depends="check-export" unless="export.present">
+		<echo message="Export directory not set !!!" />
+	</target>
+</project>
