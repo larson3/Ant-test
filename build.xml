@@ -98,9 +98,6 @@
 			</report>
 			
         </junitreport>
-		<exec executable="open">
-			<arg value="build/junitreport/index.html"/>
-		</exec>
     </target>
 	
 	<target name="clean-build" depends="clean,jar"/>
